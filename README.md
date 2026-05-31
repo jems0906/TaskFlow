@@ -106,6 +106,26 @@ TaskFlow is a full-stack internal workflow product built with React, TypeScript,
    - Triggered on backend, frontend, and workflow changes in push and pull request events
    - Runs backend smoke checks and frontend lint/build checks
 
+## Deploy to Render
+
+This repository includes a Render Blueprint file at `render.yaml` for a 3-service deploy:
+
+- `taskflow-postgres` (Render Postgres)
+- `taskflow-api` (Node web service from `backend/`)
+- `taskflow-web` (static site from `frontend/`)
+
+Deploy steps:
+
+1. In Render, choose **New +** -> **Blueprint**.
+2. Connect/select this GitHub repo (`jems0906/TaskFlow`) and branch `main`.
+3. Render will detect `render.yaml` and show all services.
+4. When prompted for environment variables with `sync: false`, set:
+   - `taskflow-web` -> `VITE_API_URL` = `https://<taskflow-api-onrender-domain>/api`
+   - `taskflow-api` -> `CLIENT_URL` = `https://<taskflow-web-onrender-domain>`
+5. Create the Blueprint and wait for deploys to complete.
+
+After first deploy, if the API deploy ran before `CLIENT_URL` was set, update it in the Render dashboard and redeploy the API once.
+
 ## Demo accounts
 
 - `alex@taskflow.local` / `password123`
