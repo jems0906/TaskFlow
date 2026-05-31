@@ -11,8 +11,7 @@ services:
     rootDir: backend
     plan: free
     buildCommand: npm ci && npm run prisma:generate && npm run build
-    preDeployCommand: npm run prisma:push
-    startCommand: npm start
+    startCommand: npm run prisma:push && npm start
     healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
