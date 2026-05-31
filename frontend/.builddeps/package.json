@@ -1,0 +1,9 @@
+{
+  "name": "frontend-build-deps",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "devDependencies": {
+    "esbuild-wasm": "^0.28.0"
+  }
+}

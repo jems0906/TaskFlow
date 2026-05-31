@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+    paths:
+      - backend/**
+      - frontend/**
+      - .github/workflows/**
+  pull_request:
+    paths:
+      - backend/**
+      - frontend/**
+      - .github/workflows/**
+
+jobs:
+  backend-smoke:
+    name: Backend Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: taskflow
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d taskflow"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/taskflow?schema=public
+      JWT_SECRET: taskflow-dev-secret
+      PORT: 4000
+      CLIENT_URL: http://localhost:5173
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+
+      - name: Push schema
+        run: npm run prisma:push
+
+      - name: Seed database
+        run: npm run seed
+
+      - name: Build backend
+        run: npm run build
+
+      - name: Start backend
+        run: |
+          npm start > ../backend.log 2>&1 &
+          echo $! > ../backend.pid
+
+      - name: Wait for health endpoint
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:4000/api/health > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend did not become healthy in time"
+          exit 1
+
+      - name: Run smoke test
+        run: npm run smoke
+
+      - name: Print backend logs on failure
+        if: failure()
+        run: cat ../backend.log
+
+      - name: Stop backend
+        if: always()
+        run: |
+          if [ -f ../backend.pid ]; then
+            kill "$(cat ../backend.pid)" || true
+          fi
+
+  frontend-checks:
+    name: Frontend Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/.builddeps/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Install frontend build dependencies
+        working-directory: frontend/.builddeps
+        run: npm ci
+
+      - name: Lint frontend
+        run: npm run lint
+
+      - name: Build frontend
+        run: npm run build
